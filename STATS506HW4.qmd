@@ -1,0 +1,364 @@
+---
+title:  "STATS 506 HW 4"
+author: "ZHAO Shengchun"
+format: pdf
+editor: visual
+---
+
+## Github URL:
+
+<https://github.com/ZHAOShengchun67734538/STAT-506-HW-4>
+
+## Question 1
+
+**(a)**
+
+```{r}
+library(tidyverse)
+library(nycflights13)
+### (a) ###
+# Departure Delay Table
+dep_delay = flights %>% 
+              select(origin, dep_delay) %>% 
+              group_by(origin) %>% 
+              summarise(mean_dep = mean(dep_delay,na.rm = TRUE),
+                        median_dep = median(dep_delay, na.rm=TRUE),
+                        num = n()) %>% 
+              ungroup() %>% 
+              filter(num >= 10) %>% 
+              rename(faa = origin) %>% 
+              left_join(airports,by = "faa") %>% 
+              select(name, mean_dep, median_dep) %>% 
+              arrange(desc(mean_dep))
+
+dep_delay %>% print(n = count(.))
+```
+
+```{r}
+# Arrival Delay Table
+arr_delay = flights %>% 
+              select(dest, arr_delay) %>%
+              group_by(dest) %>% 
+              summarise(mean_arr = mean(arr_delay,na.rm = TRUE),
+                        median_arr = median(arr_delay, na.rm=TRUE),
+                        num = n()) %>% 
+              ungroup() %>% 
+              filter(num >= 10) %>% 
+              rename(faa = dest) %>% 
+              left_join(airports,by = "faa") %>% 
+              mutate(name = coalesce(name, faa)) %>%
+              select(name, mean_arr, median_arr) %>% 
+              filter(!is.na(mean_arr)) %>% 
+              filter(!is.na(median_arr)) %>% 
+              arrange(desc(mean_arr))
+              
+arr_delay %>% print(n = count(.))
+```
+
+**(b)**
+
+```{r}
+### (b) ###
+model = flights %>% 
+          left_join(planes, by = "tailnum") %>% 
+          select(c(model, distance, air_time)) %>% 
+          mutate(speed = distance/(air_time/60)) %>% 
+          group_by(model) %>% 
+          summarise(ave_mph = mean(speed, na.rm = TRUE),
+                    num_flights = n()) %>% 
+          ungroup() %>% 
+          arrange(desc(ave_mph)) %>% 
+          head(n = 1L)
+model
+```
+
+## Question 2
+
+```{r}
+library(tidyverse)
+nnmaps = read_csv("C:/Users/z1883/Desktop/chicago-nmmaps.csv")
+nnmaps %>% head()
+# find the range of the year in nnmaps
+year.range <- nnmaps$year %>% unique
+year.range
+```
+
+```{r}
+#' Title:
+#' Calculate average temperature for a given month and year
+#' @param month numeric or string, such as 5 or May 
+#' @param year numeric 
+#' @param data data set have the numeric month, tempreture, year
+#' @param average_fn function to calculate mean tempreture, 
+#' the default is mean()
+#' @param celsius logical, TRUE/FALSE, if TRUE, the tempreture 
+#'                will be converted to  celsius, the default is
+#'                FALSE, which is fahrenheit
+#' @return the average tempreture
+
+#####################################################################
+
+get_temp=function(month, year, data, average_fn=mean, celsius=FALSE)
+{
+  # Check the validity of month
+  if(month %>% is.numeric())
+  {
+    if(month != (month %>% as.integer()))
+    {
+      stop("This month is not an integer, please try again.")
+    }
+    if((month < 1) | (month > 12))
+    {
+      stop("This month is out of range, please try again.")
+    }
+    month.input = month
+    
+  }else if(month %>% is.character())
+  {
+    month.set = c("January", "February", "March", "April", 
+                  "May", "June", "July","August", 
+                  "September", "October", "November", "December")
+    month.input <- grep(month, month.set, ignore.case=TRUE)
+    if(month.input %>% identical(integer(0)))
+    {
+      stop("This month is not valid character, please try again.")
+    }
+    
+  }else
+  {
+    stop("Input month must be numeric or character.")
+  }
+  
+
+  # Check the validity of year
+  if(!(year %>% is.numeric()))
+  {
+    stop("This year is not a numeric, please try again.")
+  }
+  if(year != (year %>% as.integer()) )
+  {
+    stop("This year is not an integer, please try again.")
+  }
+  if((year<year.range[1])|(year>year.range[year.range %>% length]))
+  {
+    stop("This year is out of range, please try again.")
+  }
+  
+  
+  # Check the validity of function
+  if (!(average_fn %>% is.function)) 
+  {
+    stop("average_fn must be a function")
+  }
+  
+  
+  # Check the validity of celsius
+  if (!(celsius %>% is.logical())) {
+    stop("celsius must be a logical")
+  }
+  
+  data %>% 
+    select(temp, month_numeric, year) %>% 
+    rename(nnmaps.year = year) %>% 
+    filter(month_numeric==month.input, nnmaps.year==year) %>% 
+    summarize(ave.temp = average_fn(temp)) %>%
+    as.numeric -> result
+  
+  if(celsius == TRUE)
+  {
+    cel.result = (result - 32)*(5/9)
+    return(cel.result)
+  }else{
+    return(result)
+  }
+  
+}
+```
+
+```{r}
+get_temp("Apr", 1999, data = nnmaps)
+```
+
+```{r}
+get_temp("Apr", 1999, data = nnmaps, celsius = TRUE)
+```
+
+```{r}
+get_temp(10, 1998, data = nnmaps, average_fn = median)
+```
+
+```{r}
+#| warning: true
+#| error: true
+get_temp(13, 1998, data = nnmaps)
+```
+
+```{r}
+#| warning: true
+#| error: true
+get_temp(2, 2005, data = nnmaps)
+```
+
+```{r}
+get_temp("November", 1999, data =nnmaps, celsius = TRUE,
+         average_fn = function(x) {
+           x %>% sort -> x
+           x[2:(length(x) - 1)] %>% mean %>% return
+         })
+
+```
+
+## Question 3
+
+**(a)**
+
+```{r}
+art = read.csv("C:/Users/z1883/Desktop/df_for_ml_improved_new_market.csv")
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+
+yearly.summary = art %>%
+  group_by(year) %>%
+  summarize(
+    ave.price = mean(price_usd, na.rm = TRUE),
+    median.price = median(price_usd, na.rm = TRUE),
+    sd.price = sd(price_usd, na.rm = TRUE)
+  ) %>% 
+  ungroup()
+```
+
+```{r}
+# Plotting the average median, and sd sales price over time
+ggplot(yearly.summary, aes(x = year)) +
+  geom_line(aes(y = ave.price, color="Average Price"),linewidth = 1) +
+  geom_line(aes(y = median.price, color="Median Price"),linewidth = 1) +
+  geom_line(aes(y = sd.price, color="Standard Deviation"),linewidth = 1)+
+  labs(
+    title = "Changes in Art Sales Price (USD) Over Time",
+    x = "Year",
+    y = "Sales Price (USD)",
+    color = "Index"
+  ) +
+  theme_minimal() +
+  scale_color_manual(values = c("Average Price" = "lightblue",
+                                "Median Price" = "red",
+                                "Standard Deviation" = "yellow"))+
+  theme(
+    plot.title = element_text(size = 12, face = "bold"),
+    axis.title = element_text(size = 12),
+    legend.position = "top"
+  )
+```
+
+From the plot, we can see there exist a change of sales price in USD overtime. The average price shows a significant increase starting from around 2000, peaking in the year 2008, and then declining afterward. The median price also rose from around 2000 to a peak in 2008, but it remains much lower than the average price throughout the period. Compared with the mean price, median growth has been more modest. We can also find the variation of price becoming huge from 2004, which means the majority of art sales were at lower prices, with a few high-priced outliers driving up the average price and variation at that period.
+
+**(b)**
+
+```{r}
+# Change the column names
+colnames(art)[102] = "Photography"
+colnames(art)[103] = "Print"
+colnames(art)[104] = "Sculpture"
+colnames(art)[105] = "Painting"
+colnames(art)[106] = "Others"
+
+# We combine the five binary variables into one column
+art.long = art %>%
+  pivot_longer(
+    cols = c("Photography","Print",
+             "Sculpture","Painting",
+             "Others"), 
+    names_to = "Genre", 
+    values_to = "Is_Genre"
+  ) %>%
+  # Keep only rows where the genre is present
+  filter(Is_Genre == 1) %>% 
+  # Remove the binary indicator column
+  select(-Is_Genre)
+
+# Summarize the count of each genre per year
+yearly.genre = art.long %>%
+  group_by(year, Genre) %>%
+  summarize(count = n(), .groups = "drop") %>%
+  group_by(year) %>%
+  mutate(percentage = count / sum(count) * 100) %>% 
+  ungroup()
+```
+
+```{r}
+# Plot the distribution of genre across years
+ggplot(yearly.genre, aes(x = year, y = percentage, fill = Genre)) +
+  geom_area(alpha = 0.8) +
+  labs(
+    title = "Distribution of Art Genres Sold Over Time",
+    x = "Year",
+    y = "Percentage of Sales",
+    fill = "Genre"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 12, face = "bold"),
+    axis.title = element_text(size = 12),
+    legend.position = "top"
+  ) +
+  scale_fill_manual(values = c(
+    "Photography" = "yellow",
+    "Print" = "lightblue",
+    "Sculpture" = "lightgreen",
+    "Painting" = "red",
+    "Others" = "pink"
+  ))
+```
+
+Until about 2000, there was no market share for PRINT art, and the sales share of the other four categories of art was roughly the same. After 2000, PRINT artworks appeared, and their market share remained small; SCULPTURE & PHOTOGRAPHY artworks had a larger demand and occupied the main market share; PAINTING & OTHERS artworks had a relatively smaller market share, and the market share between them was similar. To sum up, after 2000, the market share of all kinds of artworks changed and stabilized without much change.
+
+**(c)**
+
+```{r}
+genre.price = art.long %>%
+  group_by(year, Genre) %>%
+  summarize(ave.price = mean(price_usd, na.rm = TRUE), .groups = "drop")
+```
+
+```{r}
+# Plot the change in average sales price over time for each genre
+ggplot(genre.price, aes(x = year, y = ave.price, color = Genre)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  labs(
+    title = "Change in Sales Price by Genre Over Time",
+    x = "Year",
+    y = "Average Sales Price (USD)",
+    color = "Genre"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 12, face = "bold"),
+    axis.title = element_text(size = 12),
+    legend.position = "top"
+  ) +
+  scale_color_manual(values = c(
+    "Photography" = "yellow",
+    "Print" = "lightblue",
+    "Sculpture" = "lightgreen",
+    "Painting" = "red",
+    "Others" = "pink"
+  ))
+```
+
+Photography:
+
+It has the highest variability in average price over time, with significant peaks around 2006-2008, the maximum reaching over \$60,000. It reflects a high demand of the market starting in 2004.
+
+Print:
+
+The average price has been fluctuating within a certain range. It may be that the market has been fluctuating, or it may be that the pricing range of Print artworks is relatively large, thus affecting the average value.
+
+Painting & Others:
+
+The two lines largely coincided and grew slowly until 2008, when prices fell back after reaching a small peak.
+
+Sculpture:
+
+The price of sculpture over the years has been lower than other categories. Also, the kind of slow price growth, indicating that the selling price is very stable, slow growth may be the reason for inflation, It is also possible that the buyers for such art are very small and fixed.
